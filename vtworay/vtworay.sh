@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # The files installed by the script conform to the Filesystem Hierarchy Standard:
 # https://wiki.linuxfoundation.org/lsb/fhs
@@ -26,6 +26,8 @@ JSON_PATH=${JSON_PATH:-/usr/local/etc/v2ray}
 # Set this variable only if you want this script to check all the systemd unit file:
 # export check_all_service_files='yes'
 
+# committed 210119
+
 curl() {
   $(type -P curl) -L -q --retry 5 --retry-delay 10 --retry-max-time 60 "$@"
 }
@@ -47,8 +49,14 @@ systemd_cat_config() {
 check_if_running_as_root() {
   # If you want to run as another user, please modify $UID to be owned by this user
   if [[ "$UID" -ne '0' ]]; then
-    echo "error: You must run this script as root!"
-    exit 1
+    echo "WARNING: The user currently executing this script is not root. You may encounter the insufficient privilege error."
+    read -r -p "Are you sure you want to continue? [y/n] " cont_without_been_root
+    if [[ x"${cont_without_been_root:0:1}" = x'y' ]]; then
+      echo "Continuing the installation with current user..."
+    else
+      echo "Not running with root, exiting..."
+      exit 1
+    fi
   fi
 }
 
@@ -66,9 +74,11 @@ identify_the_operating_system_and_architecture() {
         ;;
       'armv6l')
         MACHINE='arm32-v6'
+        grep Features /proc/cpuinfo | grep -qw 'vfp' || MACHINE='arm32-v5'
         ;;
       'armv7' | 'armv7l')
         MACHINE='arm32-v7a'
+        grep Features /proc/cpuinfo | grep -qw 'vfp' || MACHINE='arm32-v5'
         ;;
       'armv8' | 'aarch64')
         MACHINE='arm64-v8a'
